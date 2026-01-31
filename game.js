@@ -56,7 +56,7 @@
 
     inv: { food: 0, water: 0, med: 0, wood: 0 },
 
-    // input flags (desktop & mobile share these)
+    // input flags
     moveHeld: false,
     runHeld: false,
     pickPressed: false,
@@ -103,7 +103,6 @@
 
   ui.closeOverlay.addEventListener("click", closeInventory);
   ui.overlay.addEventListener("click", (e) => {
-    // click outside card closes
     if (e.target === ui.overlay) closeInventory();
   });
 
@@ -131,44 +130,147 @@
     scene: { preload, create, update },
   };
 
-  const game = new Phaser.Game(config);
+  new Phaser.Game(config);
 
   let player, items, shelterZone, infoText, phaseText, keyText;
   let keys = {};
 
   function preload() {
-    // Using simple generated textures (no external assets).
-    // Player
-    this.textures.generate("p", { data: [" 333 ", "33333", "33333", " 333 "], pixelWidth: 6 });
-    // Item
+    // ---- Mina (original child-survivor vibe, not copying any specific character) ----
+    // Palette encoded by digits (Phaser textures.generate uses color values via "pixelWidth"; digits map to colors internally by tinting).
+    // We'll generate separate layers for cleaner look: body + face/eyes + hairclip.
+
+    // Mina base silhouette (big head + poncho)
+    this.textures.generate("minaBase", {
+      data: [
+        "   111111   ",
+        "  11111111  ",
+        " 1111111111 ",
+        " 1111111111 ",
+        " 1111111111 ",
+        "  11111111  ",
+        "   111111   ",
+        "    2222    ",
+        "   222222   ",
+        "  22222222  ",
+        " 2222222222 ",
+        " 2222222222 ",
+        "  22222222  ",
+        "   222222   ",
+        "    2222    ",
+        "    3333    ",
+        "    3333    ",
+      ],
+      pixelWidth: 4
+    });
+
+    // Mina face details (eyes)
+    this.textures.generate("minaFace", {
+      data: [
+        "            ",
+        "            ",
+        "            ",
+        "            ",
+        "   4   4    ",
+        "            ",
+        "    44      ",
+        "            ",
+        "            ",
+      ],
+      pixelWidth: 4
+    });
+
+    // Hair-clip (leaf/star-like) on side
+    this.textures.generate("minaClip", {
+      data: [
+        "   5        ",
+        "  555       ",
+        "   5        ",
+        "            ",
+      ],
+      pixelWidth: 4
+    });
+
+    // Item (resource)
     this.textures.generate("it", { data: [" 666 ", "66666", " 666 "], pixelWidth: 6 });
-    // Shelter
-    this.textures.generate("sh", { data: ["77777","7   7","7 7 7","7   7","77777"], pixelWidth: 6 });
+
+    // Shelter icon
+    this.textures.generate("sh", {
+      data: ["77777","7   7","7 7 7","7   7","77777"],
+      pixelWidth: 6
+    });
   }
 
   function create() {
-    // World
-    const bg = this.add.rectangle(W/2, H/2, W, H, 0x0b1020).setDepth(-10);
-    const haze = this.add.rectangle(W/2, H/2, W, H, 0xffffff, 0.03).setDepth(-9);
+    // Background
+    this.add.rectangle(W/2, H/2, W, H, 0x0b1020).setDepth(-10);
+    this.add.rectangle(W/2, H/2, W, H, 0xffffff, 0.03).setDepth(-9);
 
     // Ground line
     this.add.line(0, 0, 0, H-80, W, H-80, 0xffffff, 0.08).setOrigin(0);
 
-    // Player
-    player = this.physics.add.sprite(120, H-140, "p");
+    // Player container (Mina composed from layers)
+    const minaContainer = this.add.container(120, H-140);
+    const base = this.add.sprite(0, 0, "minaBase").setOrigin(0.5, 0.65);
+    const face = this.add.sprite(-2, -26, "minaFace").setOrigin(0.5, 0.5);
+    const clip = this.add.sprite(-18, -46, "minaClip").setOrigin(0.5, 0.5);
+
+    // Tint layers to create a soft palette
+    // base: warm beige head + muted poncho
+    base.setTint(0xE8DCC8); // head/body base tone
+    // We'll fake poncho shade by adding a second overlay rectangle behind lower part
+    const ponchoShade = this.add.rectangle(0, 18, 52, 58, 0x2A3A52, 0.85).setOrigin(0.5, 0.5);
+    ponchoShade.setRoundedRectangle(0, 18, 52, 58, 16);
+
+    face.setTint(0x0B1020); // dark eye dots (matches theme)
+    clip.setTint(0xF2C14E); // warm leaf/star clip
+
+    // Add glow ring behind Mina for visibility
+    const glow = this.add.circle(0, 0, 46, 0x80B4FF, 0.10);
+    const glow2 = this.add.circle(0, 0, 32, 0xFFFFFF, 0.06);
+
+    minaContainer.add([glow, glow2, ponchoShade, base, face, clip]);
+    minaContainer.setDepth(2);
+
+    // Arcade physics for the container using an invisible body sprite
+    player = this.physics.add.sprite(120, H-140, null);
     player.setCollideWorldBounds(true);
     player.setDrag(1200, 1200);
+    player.body.setSize(44, 70, true);
+
+    // Tiny idle “breathing” animation (clean, soft)
+    this.tweens.add({
+      targets: minaContainer,
+      y: minaContainer.y - 3,
+      duration: 900,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut"
+    });
+
+    // Link container to physics sprite
+    this.events.on("postupdate", () => {
+      minaContainer.x = player.x;
+      minaContainer.y = player.y;
+    });
 
     // Items group
     items = this.physics.add.group({ immovable: true, allowGravity: false });
 
-    // Shelter zone (end of path)
-    shelterZone = this.add.rectangle(W-120, H-140, 120, 120, 0xffffff, 0.04);
+    // Shelter zone
+    shelterZone = this.add.rectangle(W-120, H-140, 120, 120, 0xffffff, 0.05);
     this.physics.add.existing(shelterZone, true);
-    const shelterIcon = this.add.sprite(W-120, H-140, "sh").setScale(1.2);
-    shelterIcon.setAlpha(0.85);
 
-    // UI texts inside canvas (minimal)
+    const shelterIcon = this.add.sprite(W-120, H-150, "sh").setScale(1.2);
+    shelterIcon.setAlpha(0.9);
+
+    const shelterText = this.add.text(W-120, H-92, "SHELTER", {
+      fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial",
+      fontSize: "12px",
+      color: "rgba(255,255,255,0.65)"
+    }).setOrigin(0.5, 0.5);
+
+    // Minimal in-canvas hints
     infoText = this.add.text(16, 14, "", {
       fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial",
       fontSize: "14px",
@@ -187,9 +289,8 @@
       color: "rgba(255,255,255,0.45)",
     });
 
-    // Collisions / overlaps
+    // Overlaps for picking
     this.physics.add.overlap(player, items, (p, it) => {
-      // pick requires pressing S / touch PICK
       if (state.inventoryOpen || state.paused) return;
       if (state.pickCooldown > 0) return;
       if (!state.pickPressed) return;
@@ -197,16 +298,16 @@
       const kind = it.getData("kind");
       collect(kind);
       it.destroy();
-      state.pickCooldown = 250; // ms
+      state.pickCooldown = 250;
       state.pickPressed = false;
     });
 
+    // Shelter overlap -> show sleep button at night
     this.physics.add.overlap(player, shelterZone, () => {
-      // Show sleep button only at night + inside shelter
       if (state.phase === "night") ui.btnSleep.classList.remove("hidden");
     });
 
-    // Keyboard
+    // Keyboard (your mapping)
     keys = this.input.keyboard.addKeys({
       D: Phaser.Input.Keyboard.KeyCodes.D,
       A: Phaser.Input.Keyboard.KeyCodes.A,
@@ -216,10 +317,9 @@
       SPACE: Phaser.Input.Keyboard.KeyCodes.SPACE,
     });
 
-    // Spawn initial items
     spawnItems(this);
 
-    // Phase timer: day -> dusk -> night cycle
+    // Time loop
     this.time.addEvent({
       delay: 1000,
       loop: true,
@@ -229,12 +329,19 @@
     updateHUD();
     updateCanvasInfo();
     hookMobileButtons();
+    tutorialBubbles(this);
+  }
+
+  function tutorialBubbles(scene) {
+    // short, clean hints that disappear
+    toast("Hold D / ▶ MOVE to go forward");
+    scene.time.delayedCall(1600, () => toast("Press S / 🖐 PICK near items"));
+    scene.time.delayedCall(3200, () => toast("A / 🎒 BAG opens inventory"));
   }
 
   function hookMobileButtons() {
     if (!isTouch) return;
 
-    // Helper for hold buttons
     const hold = (button, onDown, onUp) => {
       const down = (e) => { e.preventDefault(); onDown(); };
       const up = (e) => { e.preventDefault(); onUp(); };
@@ -245,27 +352,18 @@
       button.addEventListener("pointerleave", up);
     };
 
-    hold(ui.btnMove,
-      () => { state.moveHeld = true; },
-      () => { state.moveHeld = false; }
-    );
-
-    hold(ui.btnRun,
-      () => { state.runHeld = true; },
-      () => { state.runHeld = false; }
-    );
+    hold(ui.btnMove, () => { state.moveHeld = true; }, () => { state.moveHeld = false; });
+    hold(ui.btnRun, () => { state.runHeld = true; }, () => { state.runHeld = false; });
 
     ui.btnPick.addEventListener("click", (e) => {
       e.preventDefault();
       state.pickPressed = true;
-      // will be consumed by overlap logic if near item
       toast("Pick");
     });
 
     ui.btnBag.addEventListener("click", (e) => {
       e.preventDefault();
       state.bagPressed = true;
-      // handled in update loop
     });
 
     ui.btnPause.addEventListener("click", (e) => {
@@ -280,10 +378,9 @@
   }
 
   function update(time, delta) {
-    // reset contextual sleep button if not in shelter/night
     if (state.phase !== "night") ui.btnSleep.classList.add("hidden");
 
-    // Handle keyboard -> state flags
+    // Keyboard -> flags
     if (keys.D?.isDown) state.moveHeld = true;
     else if (!isTouch) state.moveHeld = false;
 
@@ -291,11 +388,8 @@
     else if (!isTouch) state.runHeld = false;
 
     if (Phaser.Input.Keyboard.JustDown(keys.S)) state.pickPressed = true;
-
     if (Phaser.Input.Keyboard.JustDown(keys.A)) state.bagPressed = true;
-
     if (Phaser.Input.Keyboard.JustDown(keys.F)) state.pausePressed = true;
-
     if (Phaser.Input.Keyboard.JustDown(keys.SPACE)) state.sleepPressed = true;
 
     // Pause toggle
@@ -305,56 +399,49 @@
       toast(state.paused ? "Paused" : "Resumed");
     }
 
-    // Inventory toggle (A)
+    // Inventory toggle
     if (state.bagPressed) {
       state.bagPressed = false;
       toggleInventory();
     }
 
-    // If paused OR inventory open -> freeze player movement
     const frozen = state.paused || state.inventoryOpen;
 
     if (frozen) {
       player.setVelocity(0, 0);
-      // still reduce cooldown timers
       state.pickCooldown = Math.max(0, state.pickCooldown - delta);
       updateCanvasInfo();
       updateHUD();
       return;
     }
 
-    // Move logic (only forward)
-    const baseSpeed = state.runHeld ? 240 : 150;
-    if (state.moveHeld) {
-      player.setVelocityX(baseSpeed);
-    } else {
-      player.setVelocityX(0);
-    }
+    // Forward movement only (D / MOVE)
+    const baseSpeed = state.runHeld ? 260 : 160;
+    if (state.moveHeld) player.setVelocityX(baseSpeed);
+    else player.setVelocityX(0);
 
-    // Keep player on "path band"
-    player.y = Phaser.Math.Clamp(player.y, H-200, H-110);
+    // Keep on path band
+    player.y = Phaser.Math.Clamp(player.y, H - 200, H - 110);
 
-    // Pick cooldown
+    // Cooldowns
     state.pickCooldown = Math.max(0, state.pickCooldown - delta);
 
-    // Night sleep
+    // Sleep
     if (state.sleepPressed) {
       state.sleepPressed = false;
-      trySleep(this);
+      trySleep();
     }
 
     updateCanvasInfo();
     updateHUD();
 
-    // consume one-shot press flags
+    // one-shot press
     state.pickPressed = false;
   }
 
   // ------- Time / Phase system -------
-  // Every "day" lasts 18 seconds (12 day, 3 dusk, 3 night)
-  // This is just prototype pacing.
-  let t = 0; // seconds in current day
-  function tickTime(scene) {
+  let t = 0;
+  function tickTime() {
     if (state.paused || state.inventoryOpen) return;
     t++;
 
@@ -374,18 +461,25 @@
       state.hope -= 0.35;
     }
 
-    // soft fail states (keep it non-graphic)
     state.health = clamp(state.health, 0, 100);
     state.hope = clamp(state.hope, 0, 100);
 
     if (state.health <= 0 || state.hope <= 0) {
       state.paused = true;
       toast("Run ended (try again)");
-      showEndCard(scene, "You couldn’t make it this time. Try a new run.");
+      openInventory();
+      const tips = document.querySelector(".tips");
+      if (tips) {
+        tips.innerHTML = `
+          <div class="tip"><b>Run Summary</b></div>
+          <div class="tip">You couldn’t make it this time. Try a new run.</div>
+          <div class="tip muted">Refresh the page to restart.</div>
+        `;
+      }
       return;
     }
 
-    // End of day auto-advance (after night finishes)
+    // End of day
     if (t >= 18) {
       t = 0;
       state.day++;
@@ -393,13 +487,20 @@
       if (state.day > state.maxDay) {
         state.paused = true;
         toast("Survived 7 nights!");
-        showEndCard(scene, "You survived 7 nights. Prototype win ✅");
+        openInventory();
+        const tips = document.querySelector(".tips");
+        if (tips) {
+          tips.innerHTML = `
+            <div class="tip"><b>Run Summary</b></div>
+            <div class="tip">You survived 7 nights. Prototype win ✅</div>
+            <div class="tip muted">Refresh the page to restart.</div>
+          `;
+        }
         return;
       }
 
-      // new day: spawn more items, small hope boost
       state.hope = clamp(state.hope + 6, 0, 100);
-      spawnItems(scene, true);
+      spawnItems(window.__phaserSceneRef__, true);
       toast(`Day ${state.day}`);
       updateHUD();
     }
@@ -411,16 +512,18 @@
       state.phase === "night"
         ? "Night: reach shelter (right) and press Space / 🌙 Sleep."
         : (state.phase === "dusk"
-          ? "Dusk: danger rises. Keep moving, collect fast."
+          ? "Dusk: danger rises. Collect fast."
           : "Day: explore, collect resources, keep hope up.");
 
     infoText.setText(tip);
-    phaseText.setText(`Phase: ${phaseName} • Hold MOVE ▶ (mobile) or D (PC).`);
+    phaseText.setText(`Phase: ${phaseName} • D / ▶ MOVE forward • S / 🖐 PICK items`);
   }
 
   // ------- Items / Collection -------
   function spawnItems(scene, more = false) {
-    // clear old items sometimes for cleanliness
+    // keep a reference for tickTime spawn
+    window.__phaserSceneRef__ = scene;
+
     if (!more) items.clear(true, true);
 
     const kinds = ["food", "water", "med", "wood"];
@@ -430,15 +533,21 @@
       const x = Phaser.Math.Between(180, W - 220);
       const y = Phaser.Math.Between(H - 190, H - 120);
       const it = items.create(x, y, "it");
-      it.setAlpha(0.85);
+      it.setAlpha(0.9);
       it.setData("kind", kinds[Phaser.Math.Between(0, kinds.length - 1)]);
       it.setCircle(12);
       it.setImmovable(true);
+
+      // Different tint per kind (clean + readable)
+      const kind = it.getData("kind");
+      if (kind === "food") it.setTint(0xF2C14E);
+      if (kind === "water") it.setTint(0x5EC2FF);
+      if (kind === "med") it.setTint(0x8BFFB0);
+      if (kind === "wood") it.setTint(0xC59B6D);
     }
   }
 
   function collect(kind) {
-    // simple inventory + small stat effects
     if (kind === "food") { state.inv.food++; state.health = clamp(state.health + 6, 0, 100); toast("+ Food"); }
     if (kind === "water") { state.inv.water++; state.health = clamp(state.health + 3, 0, 100); toast("+ Water"); }
     if (kind === "med") { state.inv.med++; state.health = clamp(state.health + 10, 0, 100); toast("+ Med"); }
@@ -447,12 +556,12 @@
   }
 
   // ------- Sleep (only at night + in shelter zone) -------
-  function trySleep(scene) {
+  function trySleep() {
     if (state.phase !== "night") {
       toast("Not sleepy now");
       return;
     }
-    // must be inside shelter zone bounds
+
     const dx = Math.abs(player.x - (W - 120));
     const dy = Math.abs(player.y - (H - 140));
     const inShelter = (dx < 70 && dy < 70);
@@ -462,35 +571,18 @@
       return;
     }
 
-    // consume resources to recover
     let used = false;
     if (state.inv.food > 0) { state.inv.food--; state.health = clamp(state.health + 12, 0, 100); used = true; }
     if (state.inv.water > 0) { state.inv.water--; state.health = clamp(state.health + 6, 0, 100); used = true; }
 
-    // morale
     state.hope = clamp(state.hope + (used ? 10 : 4), 0, 100);
 
     toast(used ? "Rested well" : "Slept hungry");
     updateHUD();
 
-    // fast-forward to end of day
-    t = 18;
+    t = 18; // end day
   }
 
-  // ------- End card (simple overlay using DOM inventory card) -------
-  function showEndCard(scene, message) {
-    openInventory();
-    // replace tips text temporarily
-    const tips = document.querySelector(".tips");
-    if (tips) {
-      tips.innerHTML = `
-        <div class="tip"><b>Run Summary</b></div>
-        <div class="tip">${message}</div>
-        <div class="tip muted">Refresh the page to restart.</div>
-      `;
-    }
-  }
-
-  // ------- Keep HUD synced initially -------
+  // Init HUD
   updateHUD();
 })();
