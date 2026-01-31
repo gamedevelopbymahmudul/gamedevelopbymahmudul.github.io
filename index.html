@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Last Light (Prototype)</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="dot"></div>
+        <div>
+          <div class="title">Last Light</div>
+          <div class="sub">Survival prototype (clean UI)</div>
+        </div>
+      </div>
+
+      <div class="hud">
+        <div class="hudItem">
+          <span class="hudLabel">HEALTH</span>
+          <div class="bar"><div id="healthFill" class="fill"></div></div>
+        </div>
+        <div class="hudItem">
+          <span class="hudLabel">HOPE</span>
+          <div class="bar"><div id="hopeFill" class="fill"></div></div>
+        </div>
+        <div class="hudNums">
+          <div class="pill" id="foodPill">🍞 <b id="foodNum">0</b></div>
+          <div class="pill" id="waterPill">💧 <b id="waterNum">0</b></div>
+          <div class="pill" id="dayPill">🌙 <b id="dayNum">1</b>/7</div>
+        </div>
+      </div>
+    </header>
+
+    <main class="stageWrap">
+      <div id="game"></div>
+
+      <!-- Mobile Touch HUD -->
+      <div id="touchHud" class="touchHud hidden" aria-hidden="true">
+        <button class="btn big" id="btnMove" type="button">
+          <span class="icon">▶</span><span class="lbl">MOVE</span>
+        </button>
+
+        <div class="grid">
+          <button class="btn" id="btnPick" type="button">
+            <span class="icon">🖐</span><span class="lbl">PICK</span>
+          </button>
+          <button class="btn" id="btnBag" type="button">
+            <span class="icon">🎒</span><span class="lbl">BAG</span>
+          </button>
+          <button class="btn" id="btnRun" type="button">
+            <span class="icon">⚡</span><span class="lbl">RUN</span>
+          </button>
+          <button class="btn" id="btnPause" type="button">
+            <span class="icon">⏸</span><span class="lbl">PAUSE</span>
+          </button>
+        </div>
+
+        <button class="btn sleep hidden" id="btnSleep" type="button">
+          <span class="icon">🌙</span><span class="lbl">SLEEP</span>
+        </button>
+      </div>
+
+      <!-- Inventory Overlay -->
+      <div id="overlay" class="overlay hidden" role="dialog" aria-modal="true">
+        <div class="card">
+          <div class="cardHead">
+            <div>
+              <div class="cardTitle">Inventory</div>
+              <div class="cardSub">A / 🎒 to close</div>
+            </div>
+            <button id="closeOverlay" class="xbtn" type="button">✕</button>
+          </div>
+
+          <div class="invGrid">
+            <div class="invItem">
+              <div class="invIcon">🍞</div>
+              <div class="invText">Food</div>
+              <div class="invNum" id="invFood">0</div>
+            </div>
+            <div class="invItem">
+              <div class="invIcon">💧</div>
+              <div class="invText">Water</div>
+              <div class="invNum" id="invWater">0</div>
+            </div>
+            <div class="invItem">
+              <div class="invIcon">🧪</div>
+              <div class="invText">Med</div>
+              <div class="invNum" id="invMed">0</div>
+            </div>
+            <div class="invItem">
+              <div class="invIcon">🪵</div>
+              <div class="invText">Wood</div>
+              <div class="invNum" id="invWood">0</div>
+            </div>
+          </div>
+
+          <div class="tips">
+            <div class="tip"><b>Controls</b></div>
+            <div class="tip">D = Move, A = Bag, S = Pick, R = Run, F = Pause, Space = Sleep</div>
+            <div class="tip muted">Goal: survive 7 nights. Keep Health & Hope up.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Toast -->
+      <div id="toast" class="toast hidden"></div>
+    </main>
+
+    <footer class="footer">
+      <span>Prototype build — PC + Mobile</span>
+      <span class="keys">D Move • A Bag • S Pick • R Run • F Pause • Space Sleep</span>
+    </footer>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
